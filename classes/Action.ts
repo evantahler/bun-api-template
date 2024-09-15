@@ -12,6 +12,8 @@ export enum HTTP_METHOD {
   "OPTIONS" = "OPTIONS",
 }
 
+export const DEFAULT_QUEUE = "default";
+
 export type ActionConstructorInputs = {
   name: string;
   description?: string;
@@ -19,6 +21,10 @@ export type ActionConstructorInputs = {
   web?: {
     route?: RegExp | string;
     method?: HTTP_METHOD;
+  };
+  task?: {
+    frequency?: number;
+    queue: string;
   };
 };
 
@@ -30,6 +36,10 @@ export abstract class Action {
     route: RegExp | string;
     method: HTTP_METHOD;
   };
+  task?: {
+    frequency?: number;
+    queue: string;
+  };
 
   constructor(args: ActionConstructorInputs) {
     this.name = args.name;
@@ -38,6 +48,10 @@ export abstract class Action {
     this.web = {
       route: args.web?.route ?? `/${this.name}`,
       method: args.web?.method ?? HTTP_METHOD.GET,
+    };
+    this.task = {
+      frequency: args.task?.frequency,
+      queue: args.task?.queue ?? DEFAULT_QUEUE,
     };
   }
 

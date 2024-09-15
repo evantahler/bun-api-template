@@ -19,7 +19,7 @@ export class Process extends Initializer {
   async initialize() {
     const name = config.process.name;
     const pid = process.pid;
-    logger.info(`Initializing process: ${name}, pid: ${pid}`);
+    logger.info(`Process: ${name}, pid: ${pid}`);
     return { name, pid };
   }
 }

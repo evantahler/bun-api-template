@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, lt } from "drizzle-orm";
 import { api, Connection, type Action, type ActionParams } from "../api";
 import { HTTP_METHOD } from "../classes/Action";
 import { serializeMessage } from "../ops/MessageOps";
@@ -82,6 +82,30 @@ export class MessagesList implements Action {
       messages: _messages.map((m) =>
         serializeMessage(m, m.user_name ? m.user_name : undefined),
       ),
+    };
+  }
+}
+
+export class MessagesCleanup implements Action {
+  name = "messages:cleanup";
+  description = "cleanup messages older than 24 hours";
+  task = { frequency: 1000 * 60 * 60, queue: "default" }; // run the task every hour
+  inputs = {
+    age: {
+      required: true,
+      formatter: ensureNumber,
+      default: 1000 * 60 * 60 * 24, // 24 hours
+    },
+  };
+
+  async run(params: ActionParams<MessagesCleanup>) {
+    const _messages = await api.db.db
+      .delete(messages)
+      .where(lt(messages.createdAt, new Date(Date.now() - params.age)))
+      .returning();
+
+    return {
+      messages: _messages.map((m) => serializeMessage(m)),
     };
   }
 }
