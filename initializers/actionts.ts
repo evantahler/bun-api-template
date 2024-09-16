@@ -325,18 +325,18 @@ export class Actions extends Initializer {
     }
   };
 
-  enqueueAllRecurrent = async (actionName: string) => {
+  enqueueAllRecurrent = async () => {
     const enqueuedTasks: string[] = [];
     for (const action of api.actions.actions) {
       if (action.task && action.task.frequency && action.task.frequency > 0) {
         try {
-          const toRun = await api[namespace].enqueue(actionName, {});
+          const toRun = await api[namespace].enqueue(action.name, {});
           if (toRun === true) {
             logger.info(`enqueued recurrent job ${action.name}`);
-            enqueuedTasks.push(actionName);
+            enqueuedTasks.push(action.name);
           }
         } catch (error) {
-          api[namespace].checkForRepeatRecurringTaskEnqueue(actionName, error);
+          checkForRepeatRecurringTaskEnqueue(action.name, error);
         }
       }
     }
@@ -401,17 +401,6 @@ export class Actions extends Initializer {
     return details;
   };
 
-  checkForRepeatRecurringTaskEnqueue = (actionName: string, error: any) => {
-    if (error.toString().match(/already enqueued at this time/)) {
-      // this is OK, the job was enqueued by another process as this method was running
-      logger.warn(
-        `not enqueuing periodic task ${actionName} - error.toString()`,
-      );
-    } else {
-      throw error;
-    }
-  };
-
   async initialize() {
     const actions = await globLoader<Action>("actions");
 
@@ -451,8 +440,18 @@ export class Actions extends Initializer {
       enqueueAllRecurrent: this.enqueueAllRecurrent,
       stopRecurrentAction: this.stopRecurrentAction,
       taskDetails: this.taskDetails,
-      checkForRepeatRecurringTaskEnqueue:
-        this.checkForRepeatRecurringTaskEnqueue,
     };
+  }
+}
+
+async function checkForRepeatRecurringTaskEnqueue(
+  actionName: string,
+  error: any,
+) {
+  if (error.toString().match(/already enqueued at this time/)) {
+    // this is OK, the job was enqueued by another process as this method was running
+    logger.warn(`not enqueuing periodic task ${actionName} - error.toString()`);
+  } else {
+    throw error;
   }
 }
