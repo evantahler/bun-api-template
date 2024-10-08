@@ -10,6 +10,8 @@ export enum RUN_MODE {
   SERVER = "server",
 }
 
+let flapPreventer = false;
+
 export class API {
   rootDir: string;
   initialized: boolean;
@@ -121,6 +123,15 @@ export class API {
     this.stopped = true;
     this.started = false;
     this.logger.warn("Stopping complete");
+  }
+
+  async restart() {
+    if (flapPreventer) return;
+
+    flapPreventer = true;
+    await this.stop();
+    await this.start();
+    flapPreventer = false;
   }
 
   private async findInitializers() {

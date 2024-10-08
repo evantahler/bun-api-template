@@ -181,3 +181,4 @@ dist
 # bun
 *.bun-build
 actionhero
+next.sock

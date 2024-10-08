@@ -1,8 +1,12 @@
 import { Row, Col, Form, Button, Table } from "react-bootstrap";
 import type { AppUser } from "./App";
 import type { ActionResponse } from "../api";
-import type { MessageCrete, MessagesList } from "../actions/message";
+import type { MessagesList } from "../actions/message";
 import { useEffect, useState } from "react";
+import pkg from "../package.json";
+
+let ws: WebSocket;
+let messageCounter = 0;
 
 export default function ChatCard({
   user,
@@ -16,28 +20,61 @@ export default function ChatCard({
   const [messages, setMessages] = useState<
     ActionResponse<MessagesList>["messages"]
   >([]);
+  const [connected, setConnected] = useState<boolean>(false);
+
+  function connect() {
+    ws = new WebSocket(window.location.origin, pkg.name); // connect to the server hosting *this* page.  We use the protocol to ensure that we distinguish the 'application' websocket from the next.js hot-reloading websocket
+
+    // Connection opened
+    ws.addEventListener("open", (event) => {
+      console.log("Websocket connected");
+      ws.send(
+        JSON.stringify({ messageType: "subscribe", channel: "messages" }),
+      );
+      setConnected(true);
+    });
+
+    // Listen for messages
+    ws.addEventListener("message", (event) => {
+      const response = JSON.parse(event.data);
+      console.log("Message from server: ", response);
+
+      if (response.error) setErrorMessage(response.error.message);
+      if (response.message && response.message.channel === "messages") {
+        setMessages((prevMessages) => {
+          const newMessages = [
+            response.message.message.message as (typeof messages)[number],
+            ...prevMessages,
+          ]
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 10);
+          return newMessages;
+        });
+      }
+    });
+  }
 
   async function sendMessage(event: React.SyntheticEvent) {
     event.preventDefault();
+    if (!connected) return setErrorMessage("websocket not connected");
 
     const target = event.target as typeof event.target & {
       body: { value: string };
     };
 
-    const body = new FormData();
-    body.append("body", target.body.value);
-    const response = (await fetch("/api/message", {
-      method: "put",
-      body,
-    }).then((res) => res.json())) as ActionResponse<MessageCrete>;
+    messageCounter++;
 
-    if (response.error) {
-      setErrorMessage(response.error.message);
-    } else {
-      //@ts-ignore
-      event.target.reset();
-      loadMessages();
-    }
+    ws.send(
+      JSON.stringify({
+        messageType: "action",
+        action: "message:create",
+        messageId: messageCounter,
+        params: { body: target.body.value },
+      }),
+    );
+
+    //@ts-ignore
+    event.target.reset();
   }
 
   async function loadMessages() {
@@ -47,13 +84,15 @@ export default function ChatCard({
 
     if (response.error) {
       setErrorMessage(response.error.message);
+    } else {
+      setMessages(response.messages);
     }
-    setMessages(response.messages);
   }
 
   useEffect(() => {
-    loadMessages();
-    setInterval(loadMessages, 5000);
+    connect();
+    loadMessages(); // load the messages that happened before we joined
+    // setInterval(loadMessages, 5000);
   }, []);
 
   return (
@@ -66,7 +105,7 @@ export default function ChatCard({
               <Form.Control type="text" placeholder="Message" />
             </Form.Group>
 
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" disabled={!connected}>
               Send
             </Button>
           </Form>

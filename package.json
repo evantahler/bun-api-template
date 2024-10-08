@@ -22,7 +22,7 @@
     "commander": "^12.1.0",
     "cookie": "^0.6.0",
     "drizzle-orm": "^0.30.10",
-    "formidable": "^3.5.1",
+    "http-proxy": "^1.18.1",
     "ioredis": "^5.4.1",
     "next": "^14.2.7",
     "pg": "^8.12.0",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.1.8",
+    "@types/http-proxy": "^1.17.15",
     "@types/cookie": "^0.6.0",
     "@types/formidable": "^3.4.5",
     "@types/pg": "^8.11.8",

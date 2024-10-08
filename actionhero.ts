@@ -1,10 +1,11 @@
 #! /usr/bin/env bun
 
 import pkg from "./package.json";
-import { Action, api } from "./api";
+import { Action, api, logger } from "./api";
 import { Command } from "commander";
 import { globLoader } from "./util/glob";
 import { addActionToProgram } from "./util/cli";
+import { watch } from "fs";
 
 const program = new Command();
 program.name(pkg.name).description(pkg.description).version(pkg.version);
@@ -13,8 +14,23 @@ program
   .command("start")
   .summary("Run the server")
   .description("Start the actionhero server")
-  .action(async () => {
+  .option("-w, --watch", "Reload on changes")
+  .action(async (options) => {
     await api.start();
+
+    if (options.watch) {
+      const watcher = watch(
+        import.meta.dir,
+        { recursive: true },
+        async (event: string, filename: string | Buffer | null) => {
+          if (event === "change" && !filename?.toString().startsWith(".")) {
+            logger.warn(`Reloading server due to change in ${filename}`);
+            await api.restart();
+            // TODO: Clear the require cache?
+          }
+        },
+      );
+    }
   });
 
 const actions = await globLoader<Action>("actions");

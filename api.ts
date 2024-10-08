@@ -1,4 +1,4 @@
-import { API, RUN_MODE } from "./classes/API";
+import { API } from "./classes/API";
 import type { Logger } from "./classes/Logger";
 import { config as Config } from "./config";
 

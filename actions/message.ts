@@ -27,14 +27,24 @@ export class MessageCrete implements Action {
     connection: Connection<SessionImpl>,
   ) {
     ensureSession(connection, "userId");
+    const userId = connection!.session!.data.userId!;
 
     const [message] = await api.db.db
       .insert(messages)
-      .values({
-        body: params.body,
-        user_id: connection!.session!.data.userId!,
-      })
+      .values({ body: params.body, user_id: userId })
       .returning();
+
+    const [user] = await api.db.db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    await api.pubsub.broadcast(
+      "messages",
+      { message: serializeMessage(message, user.name) },
+      `user:${userId}`,
+    );
 
     return { message: serializeMessage(message) };
   }

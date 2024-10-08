@@ -5,19 +5,31 @@ import type { Action, ActionParams } from "./Action";
 import { ErrorType, TypedError } from "./TypedError";
 import type { SessionData } from "../initializers/session";
 import { randomUUID } from "crypto";
+import type { PubSubMessage } from "../initializers/pubsub";
 
 export class Connection<T extends Record<string, any> = Record<string, any>> {
   type: string;
   identifier: string;
   id: string;
   session?: SessionData<T>;
+  subscriptions: Set<string>;
   sessionLoaded: boolean;
+  rawConnection?: any;
 
-  constructor(type: string, identifier: string, id = randomUUID() as string) {
+  constructor(
+    type: string,
+    identifier: string,
+    id = randomUUID() as string,
+    rawConnection: any = undefined,
+  ) {
     this.type = type;
     this.identifier = identifier;
     this.id = id;
     this.sessionLoaded = false;
+    this.subscriptions = new Set();
+    this.rawConnection = rawConnection;
+
+    api.connections.connections.push(this);
   }
 
   /**
@@ -95,6 +107,35 @@ export class Connection<T extends Record<string, any> = Record<string, any>> {
     }
 
     return api.session.update(this.session, data);
+  }
+
+  subscribe(channel: string) {
+    this.subscriptions.add(channel);
+  }
+
+  unsubscribe(channel: string) {
+    this.subscriptions.delete(channel);
+  }
+
+  async broadcast(channel: string, message: string) {
+    if (!this.subscriptions.has(channel)) {
+      throw new TypedError({
+        message: "not subscribed to this channel",
+        type: ErrorType.CONNECTION_NOT_SUBSCRIBED,
+      });
+    }
+
+    return api.pubsub.broadcast(channel, message, this.id);
+  }
+
+  onBroadcastMessageReceived(payload: PubSubMessage) {
+    throw new Error(
+      "unimplemented - this should be overwritten by connections that support it",
+    );
+  }
+
+  destroy() {
+    return api.connections.destroy(this.type, this.identifier, this.id);
   }
 
   private async loadSession() {

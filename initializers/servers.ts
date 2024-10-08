@@ -15,7 +15,7 @@ export class Servers extends Initializer {
   constructor() {
     super(namespace);
     this.loadPriority = 800;
-    this.startPriority = 500;
+    this.startPriority = 510;
     this.runModes = [RUN_MODE.SERVER];
   }
 

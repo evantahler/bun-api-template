@@ -10,6 +10,7 @@ import { type Config as DrizzleMigrateConfig } from "drizzle-kit";
 import { unlink } from "node:fs/promises";
 import { $ } from "bun";
 import { ErrorType, TypedError } from "../classes/TypedError";
+import { formatConnectionStringForLogging } from "../util/connectionString";
 
 const namespace = "db";
 
@@ -44,12 +45,30 @@ export class DB extends Initializer {
 
     api.db.db = drizzle(pool);
 
-    if (config.database.autoMigrate) {
-      await migrate(api.db.db, { migrationsFolder: "./drizzle" });
-      logger.info("database migrated successfully");
+    try {
+      await api.db.db.execute(sql`SELECT NOW()`);
+    } catch (e) {
+      throw new TypedError({
+        type: ErrorType.SERVER_INITIALIZATION,
+        message: `Cannot connect to database (${formatConnectionStringForLogging(config.database.connectionString)}): ${e}`,
+      });
     }
 
-    logger.info("database connection established");
+    if (config.database.autoMigrate) {
+      try {
+        await migrate(api.db.db, { migrationsFolder: "./drizzle" });
+        logger.info("database migrated successfully");
+      } catch (e) {
+        throw new TypedError({
+          type: ErrorType.SERVER_INITIALIZATION,
+          message: `Cannot migrate database (${formatConnectionStringForLogging(config.database.connectionString)}): ${e}`,
+        });
+      }
+    }
+
+    logger.info(
+      `database connection established (${formatConnectionStringForLogging(config.database.connectionString)})`,
+    );
   }
 
   async stop() {
